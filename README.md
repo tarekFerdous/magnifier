@@ -50,8 +50,8 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 
 ## Download
 
-1. Grab the latest `McScope-…-win-x64.zip` from **[Releases](https://github.com/tarekFerdous/McScope/releases)** and extract it anywhere. There's no installer.
-2. Run `McScope.exe`. Requires Windows 10 version 2004 or newer, or Windows 11.
+1. Download **[McScope.exe](https://github.com/tarekFerdous/McScope/releases/download/v0.1.0/McScope.exe)** (v0.1.0), or pick any version from **[Releases](https://github.com/tarekFerdous/McScope/releases)**. It's a single portable file with no installer. A zip with the license and readme is there too.
+2. Run it. Requires Windows 10 version 2004 or newer, or Windows 11.
 
 **Code signing:** Windows releases will be signed with free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). See the [code signing policy](CODE_SIGNING.md).
 
@@ -59,7 +59,7 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 >
 > Every release is built from this repo's source by GitHub Actions. Verify yours with:
 > ```powershell
-> gh attestation verify McScope-<version>-win-x64.zip -R tarekFerdous/McScope
+> gh attestation verify McScope.exe -R tarekFerdous/McScope
 > ```
 
 ## Build from source

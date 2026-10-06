@@ -160,8 +160,9 @@ Runtime files are in `%APPDATA%\McScope\`: `settings.json` and `log.txt`. Check 
 ## Releases
 
 - `.github/workflows/build.yml` builds and tests on every push and PR, on GitHub-hosted Windows runners.
-- Pushing a `v*` tag also: signs through SignPath (only when the `SIGNPATH_*` repo variables and secret exist), zips the exe with LICENSE and README, writes a SHA-256 file, creates a build provenance attestation (`actions/attest`), and publishes the GitHub release. `v0.*` tags are marked pre-release.
+- Pushing a `v*` tag also: signs through SignPath (only when the `SIGNPATH_*` repo variables and secret exist), publishes `McScope.exe` on its own (users run it directly) plus a zip with LICENSE and README, writes a SHA-256 file for each, creates a build provenance attestation (`actions/attest`), and publishes the GitHub release. `v0.*` tags are marked pre-release.
 - Release notes go in `.github/release-notes/<tag>.md`; write them before tagging.
+- The README's direct download link names a version (`releases/download/v0.1.0/McScope.exe`), because `releases/latest` skips pre-releases. Bump it with each release.
 - SignPath Foundation terms: every build job must stay on GitHub-hosted runners, and no proprietary components are allowed. Keep `CODE_SIGNING.md` (policy, team roles, privacy statement) accurate. `.signpath/artifact-configuration.xml` mirrors the configuration on SignPath's side.
 
 ## Verifying changes

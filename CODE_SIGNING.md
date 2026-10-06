@@ -31,8 +31,8 @@ McScope has no network code at all. Its settings and log stay on your computer, 
 
 ## Verifying a download
 
-Every release zip comes with a SHA-256 checksum file and a GitHub build provenance attestation. To confirm a download was built from this repository by GitHub Actions:
+Every release's `McScope.exe` and zip come with SHA-256 checksum files and a GitHub build provenance attestation. To confirm a download was built from this repository by GitHub Actions:
 
 ```powershell
-gh attestation verify McScope-<version>-win-x64.zip -R tarekFerdous/McScope
+gh attestation verify McScope.exe -R tarekFerdous/McScope
 ```
