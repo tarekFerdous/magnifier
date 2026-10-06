@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
-project(Magnifier VERSION 0.1.0 LANGUAGES CXX)
+project(McScope VERSION 0.1.0 LANGUAGES CXX)
 
 if(NOT WIN32)
-    message(FATAL_ERROR "Magnifier is Windows-only (Desktop Duplication + DirectComposition).")
+    message(FATAL_ERROR "McScope is Windows-only (Desktop Duplication + DirectComposition).")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -30,16 +30,16 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
-set(MAGNIFIER_DEFS UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
-set(MAGNIFIER_FLAGS /W4 /permissive- /utf-8 /EHsc)
+set(MCSCOPE_DEFS UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+set(MCSCOPE_FLAGS /W4 /permissive- /utf-8 /EHsc)
 
 # Platform-independent core, unit tested.
-add_library(magnifier_core STATIC src/app/Settings.cpp)
-target_include_directories(magnifier_core PUBLIC src)
-target_link_libraries(magnifier_core PUBLIC nlohmann_json::nlohmann_json)
-target_compile_options(magnifier_core PRIVATE ${MAGNIFIER_FLAGS})
+add_library(mcscope_core STATIC src/app/Settings.cpp)
+target_include_directories(mcscope_core PUBLIC src)
+target_link_libraries(mcscope_core PUBLIC nlohmann_json::nlohmann_json)
+target_compile_options(mcscope_core PRIVATE ${MCSCOPE_FLAGS})
 
-add_executable(Magnifier WIN32
+add_executable(McScope WIN32
     src/main.cpp
     src/app/Log.cpp
     src/capture/DesktopDup.cpp
@@ -48,13 +48,13 @@ add_executable(Magnifier WIN32
     src/ui/SettingsWindow.cpp
     src/ui/HotkeyName.cpp
     src/input/BindingWatcher.cpp)
-target_compile_definitions(Magnifier PRIVATE ${MAGNIFIER_DEFS})
-target_compile_options(Magnifier PRIVATE ${MAGNIFIER_FLAGS})
-target_link_libraries(Magnifier PRIVATE magnifier_core imgui
+target_compile_definitions(McScope PRIVATE ${MCSCOPE_DEFS})
+target_compile_options(McScope PRIVATE ${MCSCOPE_FLAGS})
+target_link_libraries(McScope PRIVATE mcscope_core imgui
     d3d11 dxgi dcomp d3dcompiler shell32 user32)
 
 enable_testing()
-add_executable(magnifier_tests tests/test_main.cpp)
-target_link_libraries(magnifier_tests PRIVATE magnifier_core)
-target_compile_options(magnifier_tests PRIVATE ${MAGNIFIER_FLAGS})
-add_test(NAME magnifier_tests COMMAND magnifier_tests)
+add_executable(mcscope_tests tests/test_main.cpp)
+target_link_libraries(mcscope_tests PRIVATE mcscope_core)
+target_compile_options(mcscope_tests PRIVATE ${MCSCOPE_FLAGS})
+add_test(NAME mcscope_tests COMMAND mcscope_tests)

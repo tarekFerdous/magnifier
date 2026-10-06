@@ -11,7 +11,7 @@ using Microsoft::WRL::ComPtr;
 
 namespace {
 
-constexpr wchar_t kClassName[] = L"MagnifierLensOverlay";
+constexpr wchar_t kClassName[] = L"McScopeLensOverlay";
 constexpr UINT kSwapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
 struct LensConstants {
@@ -121,7 +121,7 @@ bool Overlay::createWindow(HINSTANCE inst) {
     // LAYERED + TRANSPARENT = click-through; NOREDIRECTIONBITMAP = content comes from DComp only.
     const DWORD exStyle = WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE |
                           WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP;
-    hwnd_ = CreateWindowExW(exStyle, kClassName, L"Magnifier Lens", WS_POPUP, 0, 0, 1, 1, nullptr,
+    hwnd_ = CreateWindowExW(exStyle, kClassName, L"McScope Lens", WS_POPUP, 0, 0, 1, 1, nullptr,
                             nullptr, inst, nullptr);
     if (!hwnd_) {
         logf("CreateWindowEx(overlay) failed: %lu", GetLastError());

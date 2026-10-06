@@ -1,0 +1,101 @@
+name: Build
+
+# Every push/PR: build + unit tests on a clean GitHub-hosted Windows runner.
+# Tags v*: additionally sign (once SignPath is configured), package, attest and publish a release.
+#
+# SignPath signing turns on automatically when these repository settings exist
+# (Settings → Secrets and variables → Actions):
+#   secret   SIGNPATH_API_TOKEN
+#   variable SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG, SIGNPATH_SIGNING_POLICY_SLUG
+# SignPath requires every job leading up to signing to run on GitHub-hosted runners (it does).
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write           # create the GitHub release (tags only)
+      actions: read             # SignPath fetches the uploaded artifact
+      id-token: write           # build provenance attestation (Sigstore)
+      attestations: write
+      artifact-metadata: write
+    env:
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      SIGNPATH_ENABLED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and test
+        shell: cmd
+        run: build.bat x64-release
+
+      - name: Stage executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/unsigned | Out-Null
+          Copy-Item build/x64-release/McScope.exe dist/unsigned/
+
+      - name: Upload unsigned build
+        id: upload-unsigned
+        uses: actions/upload-artifact@v7
+        with:
+          name: McScope-unsigned
+          path: dist/unsigned/McScope.exe
+
+      - name: Sign with SignPath
+        if: env.IS_RELEASE == 'true' && env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed
+
+      - name: Package release
+        if: env.IS_RELEASE == 'true'
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $exeDir = if (Test-Path dist/signed/McScope.exe) { 'dist/signed' } else { 'dist/unsigned' }
+          Write-Host "Packaging $exeDir/McScope.exe"
+          New-Item -ItemType Directory -Force dist/pkg | Out-Null
+          Copy-Item "$exeDir/McScope.exe", LICENSE, README.md dist/pkg/
+          $zip = "dist/McScope-$tag-win-x64.zip"
+          Compress-Archive -Path dist/pkg/* -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $zip -Leaf)" | Out-File -Encoding ascii "$zip.sha256"
+          "ZIP=$zip" >> $env:GITHUB_ENV
+
+      - name: Attest build provenance
+        if: env.IS_RELEASE == 'true'
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            ${{ env.ZIP }}
+            dist/pkg/McScope.exe
+
+      - name: Publish GitHub release
+        if: env.IS_RELEASE == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $notes = ".github/release-notes/$tag.md"
+          $ghArgs = @($tag, $env:ZIP, "$env:ZIP.sha256", '--title', "McScope $tag", '--verify-tag')
+          if (Test-Path $notes) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
+          if ($tag -like 'v0.*' -or $tag -like '*-*') { $ghArgs += '--prerelease' }
+          gh release create @ghArgs

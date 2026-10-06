@@ -3,7 +3,7 @@
 #include "app/Log.h"
 
 namespace {
-constexpr wchar_t kClassName[] = L"MagnifierBindingWatcher";
+constexpr wchar_t kClassName[] = L"McScopeBindingWatcher";
 constexpr UINT WM_APP_REREGISTER = WM_APP + 1;
 constexpr USHORT kUsageMouse = 0x02, kUsageKeyboard = 0x06;
 

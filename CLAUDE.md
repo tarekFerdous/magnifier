@@ -31,7 +31,7 @@ Primary use case: aiming or spotting detail at the crosshair without changing th
 | Rendering | Direct3D 11 + HLSL pixel shader | Simple and fast enough |
 | Overlay presentation | DirectComposition + `CreateSwapChainForComposition` (premultiplied alpha, flip-sequential) | Per-pixel transparency with no `UpdateLayeredWindow` CPU cost |
 | Settings UI | Dear ImGui (Win32 + DX11 backends) in a **separate normal window** | Quick to build; live sliders |
-| Config | JSON at `%APPDATA%\Magnifier\settings.json` via nlohmann/json | Human-editable |
+| Config | JSON at `%APPDATA%\McScope\settings.json` via nlohmann/json | Human-editable |
 | Shaders | HLSL embedded in `render/LensShader.h`, compiled at startup with `D3DCompile` | No build-time fxc step |
 | Tests | Small self-contained runner in `tests/test_main.cpp`, run through CTest | No test framework dependency |
 | Deps | Get them with CMake `FetchContent` (imgui v1.91.8, nlohmann_json v3.11.3). Don't commit binaries. Static CRT (`/MT`). | |
@@ -83,7 +83,7 @@ tools/make_demo.py        Renders docs/ media (demo.gif, settings.gif, modes.png
 - **Low-latency loop order:** `Overlay::waitUntilReady()` (frame-latency waitable, max latency 1: DWM has taken our previous frame) → `AcquireNextFrame` (newest desktop frame) → copy box → draw → `Present(0, 0)`. Never `Present(1)`: on top of the acquire wait it made each iteration span two vblanks.
 - Swap chain: `FLIP_DISCARD` (fall back to `FLIP_SEQUENTIAL`), 2 buffers, `FRAME_LATENCY_WAITABLE_OBJECT`. Pass the same flag to `ResizeBuffers`. Consume the waitable's initial signal right after creation, otherwise every frame runs one frame behind.
 - Remaining latency is inherent to capture: the lens shows a frame that was already composed, so it appears about one refresh after the game's own pixels. Removing that would require hooking the game's swap chain, which is forbidden (see Hard requirements #3). Lower-latency game settings help: NVIDIA Reflex or AMD Anti-Lag, or an fps cap slightly below refresh so the GPU isn't 100% busy.
-- The settings window shows live stats (`app/RenderStats.h`): lens fps, monitor Hz, and capture-to-lens ms. Use them to verify any performance change.
+- The settings window shows live stats (`app/RenderStats.h`): lens fps, monitor Hz, and delay in ms (desktop update to lens present). Use them to verify any performance change.
 - `SetMaximumFrameLatency(1)` and `SetGPUThreadPriority(7)` on the device. Set the process GPU scheduling class to HIGH (`D3DKMTSetProcessSchedulingPriorityClass` through `GetProcAddress`; don't use REALTIME). Otherwise a GPU-bound game starves the lens.
 - Render thread at `THREAD_PRIORITY_HIGHEST`, and opt out of EcoQoS power throttling (`ProcessPowerThrottling`), because the lens process is never in the foreground.
 - No per-frame allocations, logging or CPU readback. The lens can't run faster than the monitor's refresh rate, because Desktop Duplication delivers composed frames.
@@ -140,10 +140,10 @@ When the lens is disabled but configured (radius > 0, strength > 1), the rendere
 
 - Use RAII for COM with `Microsoft::WRL::ComPtr`. No raw `Release()` calls.
 - Check every `HRESULT`. Use a `HR_CHECK(expr)` macro that logs `__FILE__:__LINE__` and the hex code. Don't ignore errors silently.
-- Log to `%APPDATA%\Magnifier\log.txt` and `OutputDebugString`.
+- Log to `%APPDATA%\McScope\log.txt` and `OutputDebugString`.
 - No allocations or blocking calls in the per-frame render path.
 - Clamp every setting at load time and at UI input. Treat the JSON file as untrusted: if it's corrupt, use defaults and back up the bad file.
-- Keep `app/Settings`, `app/SharedSettings.h` and `app/LensMath.h` free of Win32 so the `magnifier_core` library and its tests stay platform-independent.
+- Keep `app/Settings`, `app/SharedSettings.h` and `app/LensMath.h` free of Win32 so the `mcscope_core` library and its tests stay platform-independent.
 - If you change the lens formula, update `render/LensShader.h` and `app/LensMath.h` together and keep the tests passing.
 
 ## Build & run
@@ -151,11 +151,18 @@ When the lens is disabled but configured (radius > 0, strength > 1), the rendere
 ```powershell
 .\build.bat              # configure + build + run tests (x64-release); finds VS through vswhere
 .\build.bat x64-debug
-.\build\x64-release\Magnifier.exe
+.\build\x64-release\McScope.exe
 ```
 From a VS Developer Prompt you can also run `cmake --preset x64-release`, `cmake --build --preset x64-release` and `ctest --preset x64-release` directly.
 
-Runtime files are in `%APPDATA%\Magnifier\`: `settings.json` and `log.txt`. Check `log.txt` first when something doesn't work.
+Runtime files are in `%APPDATA%\McScope\`: `settings.json` and `log.txt`. Check `log.txt` first when something doesn't work.
+
+## Releases
+
+- `.github/workflows/build.yml` builds and tests on every push and PR, on GitHub-hosted Windows runners.
+- Pushing a `v*` tag also: signs through SignPath (only when the `SIGNPATH_*` repo variables and secret exist), zips the exe with LICENSE and README, writes a SHA-256 file, creates a build provenance attestation (`actions/attest`), and publishes the GitHub release. `v0.*` tags are marked pre-release.
+- Release notes go in `.github/release-notes/<tag>.md`; write them before tagging.
+- SignPath Foundation terms: every build job must stay on GitHub-hosted runners, and no proprietary components are allowed. Keep `CODE_SIGNING.md` (policy, team roles, privacy statement) accurate. `.signpath/artifact-configuration.xml` mirrors the configuration on SignPath's side.
 
 ## Verifying changes
 

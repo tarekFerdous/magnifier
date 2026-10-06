@@ -17,4 +17,4 @@ cmake --preset %PRESET% || exit /b 1
 cmake --build --preset %PRESET% || exit /b 1
 ctest --preset %PRESET% || exit /b 1
 echo.
-echo Built: build\%PRESET%\Magnifier.exe
+echo Built: build\%PRESET%\McScope.exe

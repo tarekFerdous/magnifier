@@ -1,14 +1,15 @@
-"""Renders the README media in docs/ by applying Magnifier's exact lens math
+"""Renders the README media in docs/ by applying McScope's exact lens math
 (src/render/LensShader.h) to frames.
 
 The real lens can't be screen-recorded: the overlay is excluded from capture
 (WDA_EXCLUDEFROMCAPTURE) so it never magnifies itself. So demos are made by
 recording the game with the lens OFF and applying the lens offline.
 
-Usage (needs Python 3 with Pillow + numpy):
+Usage (needs Python 3 with Pillow + numpy; video files also need opencv-python):
     python tools/make_demo.py                 # synthetic scene illustration
-    python tools/make_demo.py clip.gif        # real footage (GIF, e.g. ScreenToGif export)
-    python tools/make_demo.py frames_folder   # real footage (folder of PNG/JPG frames)
+    python tools/make_demo.py clip.mkv --start 41 --end 47.2 --crop 1280x720 \\
+        --radius 220 --strength 3 --phases "off:2.3,gradual:1.6,fixed:1.5,off:0.8"
+    python tools/make_demo.py clip.gif        # also: ScreenToGif GIFs or a folder of PNG/JPG frames
 """
 import os
 
@@ -139,7 +140,7 @@ def pill(d, xy, text, f, fg=(255, 255, 255), bg=(10, 10, 14, 190), anchor="ls"):
     d.text((x, y), text, font=f, fill=fg, anchor=anchor)
 
 
-def annotate(frame, caption, sub=None, tag="illustration · Magnifier lens math"):
+def annotate(frame, caption, sub=None, tag="illustration · McScope lens math"):
     img = Image.fromarray(np.clip(frame, 0, 255).astype(np.uint8)).convert("RGBA")
     w, h = img.size
     k = h / 360  # scale overlay text with resolution
@@ -158,33 +159,40 @@ def view(pano, offset):
     return draw_crosshair(pano[:, o:o + W].copy())
 
 
-def save_gif(frames, name, ms):
+def save_gif(frames, name, ms, dither=True, colors=160):
     # One shared palette for all frames avoids flicker and keeps the file small.
     fw, fh = frames[0].size
     sample = Image.new("RGB", (fw, fh * 4))
     for i, f in enumerate(frames[:: max(1, len(frames) // 4)][:4]):
         sample.paste(f, (0, fh * i))
-    pal = sample.quantize(colors=160, method=Image.Quantize.MEDIANCUT)
-    q = [f.quantize(palette=pal, dither=Image.Dither.FLOYDSTEINBERG) for f in frames]
+    pal = sample.quantize(colors=colors, method=Image.Quantize.MEDIANCUT)
+    # Dithering helps smooth synthetic gradients but bloats photographic footage several-fold.
+    mode = Image.Dither.FLOYDSTEINBERG if dither else Image.Dither.NONE
+    q = [f.quantize(palette=pal, dither=mode) for f in frames]
     path = os.path.join(OUT, name)
     q[0].save(path, save_all=True, append_images=q[1:], duration=ms, loop=0, optimize=True)
     print(f"{name}: {len(frames)} frames, {os.path.getsize(path) / 1024:.0f} KB")
 
 
-def comparison_png(base, R, S, cw, ch):
-    """Off | Gradual | Fixed, cropped around the lens center of one frame."""
+def comparison_png(base, R, S, cw, ch, scale_to=None):
+    """Off | Gradual | Fixed, cropped around the lens center of one frame.
+    scale_to: resize each crop to this panel width (keeps big native crops readable)."""
     h, w = base.shape[:2]
     panels = [("Off", base), ("Gradual zoom", apply_lens(base, R, S, True)),
               ("Fixed zoom", apply_lens(base, R, S, False))]
+    pw = scale_to or cw
+    ph = round(ch * pw / cw)
     gap, pad, label_h = 12, 12, 34
-    out = Image.new("RGB", (pad * 2 + cw * 3 + gap * 2, pad * 2 + ch + label_h), (13, 13, 16))
+    out = Image.new("RGB", (pad * 2 + pw * 3 + gap * 2, pad * 2 + ph + label_h), (13, 13, 16))
     d = ImageDraw.Draw(out)
     for i, (name, arr) in enumerate(panels):
         crop = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).crop(
             (w // 2 - cw // 2, h // 2 - ch // 2, w // 2 + cw // 2, h // 2 + ch // 2))
-        x = pad + i * (cw + gap)
+        if scale_to:
+            crop = crop.resize((pw, ph), Image.LANCZOS)
+        x = pad + i * (pw + gap)
         out.paste(crop, (x, pad))
-        d.text((x + cw // 2, pad + ch + label_h // 2 + 2), name, font=font(16, bold=True),
+        d.text((x + pw // 2, pad + ph + label_h // 2 + 2), name, font=font(16, bold=True),
                fill=(235, 235, 240), anchor="mm")
     path = os.path.join(OUT, "modes.png")
     out.save(path, optimize=True)
@@ -299,63 +307,123 @@ def profile_svg():
 
 
 # ---------------------------------------------------------------- real footage (e.g. CS2)
-FOOTAGE_TAG = "lens applied offline with Magnifier's exact math"
-MAX_FRAMES, OUT_WIDTH = 120, 800
+FOOTAGE_TAG = "real gameplay · lens applied offline with McScope's exact math"
 
 
-def load_footage(path):
-    """A GIF (e.g. from ScreenToGif) or a folder of PNG/JPG frames, recorded with the lens OFF."""
-    frames, ms = [], 50
+def center_crop(img, crop):
+    """Crop around the screen center, which is where the lens sits. crop = (w, h) or None."""
+    if not crop:
+        return img
+    h, w = img.shape[:2]
+    cw, ch = min(crop[0], w), min(crop[1], h)
+    x0, y0 = w // 2 - cw // 2, h // 2 - ch // 2
+    return img[y0:y0 + ch, x0:x0 + cw]
+
+
+def load_footage(path, start, end, out_fps, crop):
+    """Video (any format OpenCV reads, e.g. MKV/MP4 from OBS), a GIF, or a folder of PNG/JPGs.
+    Recorded with the lens OFF; returns native-resolution float frames and the frame duration."""
+    frames, ms = [], 1000 / out_fps
+    lower = path.lower()
     if os.path.isdir(path):
         names = sorted(n for n in os.listdir(path) if n.lower().endswith((".png", ".jpg", ".jpeg")))
-        frames = [Image.open(os.path.join(path, n)).convert("RGB") for n in names]
-    else:
+        frames = [np.asarray(Image.open(os.path.join(path, n)).convert("RGB")) for n in names]
+    elif lower.endswith(".gif"):
         gif = Image.open(path)
-        durations = []
         try:
             while True:
-                frames.append(gif.convert("RGB"))
-                durations.append(gif.info.get("duration", 50) or 50)
+                frames.append(np.asarray(gif.convert("RGB")))
                 gif.seek(gif.tell() + 1)
         except EOFError:
             pass
-        ms = int(sum(durations) / len(durations))
+    else:
+        import cv2  # only needed for video files: pip install opencv-python
+        cap = cv2.VideoCapture(path)
+        if not cap.isOpened():
+            raise SystemExit(f"cannot open {path}")
+        src_fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        step = max(1, round(src_fps / out_fps))
+        ms = 1000 * step / src_fps
+        first = int(start * src_fps)
+        last = int(end * src_fps) if end else int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, first)
+        for i in range(first, last):
+            ok, bgr = cap.read()
+            if not ok:
+                break
+            if (i - first) % step == 0:
+                frames.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
     if not frames:
         raise SystemExit(f"no frames found in {path}")
-    step = max(1, len(frames) // MAX_FRAMES)
-    frames, ms = frames[::step], ms * step
-    w, h = frames[0].size
-    size = (OUT_WIDTH, round(h * OUT_WIDTH / w)) if w > OUT_WIDTH else (w, h)
-    return [np.asarray(f.resize(size, Image.LANCZOS)).astype(np.float32) for f in frames], ms
+    return [center_crop(f, crop).astype(np.float32) for f in frames], ms
 
 
-def footage_assets(path, game="CS2"):
-    frames, ms = load_footage(path)
-    h, w = frames[0].shape[:2]
-    R, S = round(0.185 * h), 2.5   # ~200 px at 1080p, the app's default radius
-    n, out = len(frames), []
+def footage_assets(args):
+    crop = tuple(map(int, args.crop.split("x"))) if args.crop else None
+    frames, ms = load_footage(args.source, args.start, args.end, args.fps, crop)
+    R, S = args.radius, args.strength   # in source pixels, i.e. exactly the app's settings
+    n = len(frames)
+    total_s = n * ms / 1000
+
+    # Phases: "off:2.3,gradual:1.6,fixed:1.5,off:0.8" in seconds; default splits 20/40/25/15 %.
+    if args.phases:
+        spec = [(p.split(":")[0], float(p.split(":")[1])) for p in args.phases.split(",")]
+    else:
+        spec = [("off", .2 * total_s), ("gradual", .4 * total_s), ("fixed", .25 * total_s), ("off", .15 * total_s)]
+    bounds, acc = [], 0.0
+    for mode, secs in spec:
+        acc += secs
+        bounds.append((acc, mode))
+
+    out_w = args.width
+    out = []
     for i, f in enumerate(frames):
-        p = i / n
-        if p < 0.2:
-            out.append(annotate(f, f"{game} · lens off", tag=FOOTAGE_TAG))
-        elif p < 0.6:
-            out.append(annotate(apply_lens(f, R, S, True), "Hold Right Mouse  →  lens on",
-                                f"Gradual zoom · {S:.1f}x center", tag=FOOTAGE_TAG))
-        elif p < 0.85:
-            out.append(annotate(apply_lens(f, R, S, False), "Gradual zoom off  →  fixed zoom",
-                                f"{S:.1f}x across the whole lens", tag=FOOTAGE_TAG))
+        t = i * ms / 1000
+        k = next((j for j, (b, _) in enumerate(bounds) if t < b), len(bounds) - 1)
+        mode = bounds[k][1]
+        if mode == "off":
+            caption = f"{args.game} · lens off" if k == 0 else "Released  →  lens off"
+            img = f
+            sub = None
+        elif mode == "gradual":
+            img, caption = apply_lens(f, R, S, True), f"Hold {args.bind}  →  lens on"
+            sub = f"Gradual zoom · {S:.1f}x center · {R} px radius"
         else:
-            out.append(annotate(f, "Released  →  lens off", tag=FOOTAGE_TAG))
-    save_gif(out, "demo.gif", ms)
-    comparison_png(frames[n // 2], R, S, min(2 * R + 60, w // 3 - 16), min(2 * R + 40, h))
+            img, caption = apply_lens(f, R, S, False), "Gradual zoom off  →  fixed zoom"
+            sub = f"{S:.1f}x across the whole lens"
+        # Lens at native resolution first, then scale: what a viewer of that monitor sees.
+        pil = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
+        pil = pil.resize((out_w, round(pil.height * out_w / pil.width)), Image.LANCZOS)
+        out.append(annotate(np.asarray(pil).astype(np.float32), caption, sub, tag=FOOTAGE_TAG))
+    save_gif(out, "demo.gif", round(ms), dither=False, colors=128)
+
+    # Off | Gradual | Fixed from the frame at --compare-at (seconds into the clip).
+    base = frames[min(n - 1, int(args.compare_at * 1000 / ms))] if args.compare_at is not None else frames[n // 2]
+    side = 2 * R + 40
+    comparison_png(base, R, S, side, min(side, base.shape[0]), scale_to=300)
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("source", nargs="?", help="video / GIF / frame folder recorded with the lens OFF")
+    ap.add_argument("--start", type=float, default=0, help="clip start, seconds (video only)")
+    ap.add_argument("--end", type=float, default=None, help="clip end, seconds (video only)")
+    ap.add_argument("--fps", type=float, default=15, help="GIF frame rate")
+    ap.add_argument("--crop", default=None, help="center crop at source resolution, e.g. 1280x720")
+    ap.add_argument("--width", type=int, default=800, help="GIF width")
+    ap.add_argument("--radius", type=int, default=200, help="lens radius in source pixels")
+    ap.add_argument("--strength", type=float, default=2.5)
+    ap.add_argument("--phases", default=None, help='e.g. "off:2.3,gradual:1.6,fixed:1.5,off:0.8"')
+    ap.add_argument("--compare-at", type=float, default=None, help="seconds into the clip for modes.png")
+    ap.add_argument("--game", default="CS2")
+    ap.add_argument("--bind", default="Right Mouse")
+    args = ap.parse_args()
+
     os.makedirs(OUT, exist_ok=True)
     pano = make_panorama()
-    if len(sys.argv) > 1:
-        footage_assets(sys.argv[1])
+    if args.source:
+        footage_assets(args)
     else:
         demo_gif(pano)
         comparison_png(view(pano, target_x(3) - W // 2), 120, 3.0, 300, 270)

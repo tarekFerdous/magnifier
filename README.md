@@ -1,6 +1,8 @@
 <div align="center">
 
-# Magnifier
+# McScope
+
+*Scopey McScopeface, for short.*
 
 **A low-latency center-screen zoom lens for fullscreen games on Windows.**
 Hold a key or mouse button, and the area under your crosshair is magnified — smoothly, at your monitor's refresh rate, without touching the game.
@@ -10,10 +12,11 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 ![Direct3D 11](https://img.shields.io/badge/Direct3D-11-555)
 ![No injection](https://img.shields.io/badge/game%20process-untouched-2ea44f)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
+[![Build](https://github.com/tarekFerdous/McScope/actions/workflows/build.yml/badge.svg)](https://github.com/tarekFerdous/McScope/actions/workflows/build.yml)
 
-<img src="docs/demo.gif" alt="Animated demo: the camera flicks between distant targets; holding right mouse magnifies the crosshair area with a gradual lens, then a fixed scope-style lens, then releases" width="720">
+<img src="docs/demo.gif" alt="Animated CS2 demo on Dust 2: walking toward B, a distant player appears down the tunnel; holding right mouse magnifies the crosshair area with a gradual lens, then a fixed scope-style lens, then releases" width="640">
 
-<sub>Illustration: a synthetic scene with the lens rendered by Magnifier's exact shader math. The live lens is hidden from screen capture by design, so it can't be recorded directly — <a href="#why-cant-i-record-the-lens">here's why</a>.</sub>
+<sub>Real CS2 gameplay. The lens is applied offline with McScope's exact shader math, because the live lens is hidden from screen capture by design — <a href="#why-cant-i-record-the-lens">here's why</a>.</sub>
 
 </div>
 
@@ -37,7 +40,7 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 ## How it looks
 
 <p align="center">
-  <img src="docs/modes.png" alt="Three crops of the same frame: lens off, gradual zoom, and fixed zoom" width="760">
+  <img src="docs/modes.png" alt="Three crops of the same CS2 frame with a distant player at the crosshair: lens off, gradual zoom, and fixed zoom" width="760">
 </p>
 
 <p align="center">
@@ -45,9 +48,21 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
   <sub>Radius grows from 0 → 150 px, then strength goes 3× → 6× → 3×. The real sliders update the lens live just like this.</sub>
 </p>
 
-## Quick start
+## Download
 
-> **Prebuilt releases:** not published yet — build from source (≈1 minute).
+1. Grab the latest `McScope-…-win-x64.zip` from **[Releases](https://github.com/tarekFerdous/McScope/releases)** and extract it anywhere. There's no installer.
+2. Run `McScope.exe`. Requires Windows 10 version 2004 or newer, or Windows 11.
+
+**Code signing:** Windows releases will be signed with free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). See the [code signing policy](CODE_SIGNING.md).
+
+> **"Windows protected your PC"?** Early releases aren't code-signed yet (the SignPath Foundation application is pending). Click **More info → Run anyway**.
+>
+> Every release is built from this repo's source by GitHub Actions. Verify yours with:
+> ```powershell
+> gh attestation verify McScope-<version>-win-x64.zip -R tarekFerdous/McScope
+> ```
+
+## Build from source
 
 **Requirements**
 - Windows 10 version 2004 (build 19041) or newer, or Windows 11
@@ -58,18 +73,18 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 **Build**
 
 ```powershell
-git clone https://github.com/tarekFerdous/magnifier.git
-cd magnifier
+git clone https://github.com/tarekFerdous/McScope.git
+cd McScope
 .\build.bat              # configure + build + run tests (Release)
 ```
 
 **Run**
 
 ```powershell
-.\build\x64-release\Magnifier.exe
+.\build\x64-release\McScope.exe
 ```
 
-The settings window opens on first launch; after that Magnifier lives in the system tray.
+The settings window opens on first launch; after that McScope lives in the system tray.
 
 ## Usage
 
@@ -81,6 +96,10 @@ The settings window opens on first launch; after that Magnifier lives in the sys
 
 ### Settings
 
+<p align="center">
+  <img src="docs/settings-window.png" alt="The McScope Settings window: Lens enabled, Toggle key set to Middle Mouse, Hold mode, Radius 289 px, Strength 2.0x, Gradual zoom, Save and Reset buttons, and a live stats line" width="444">
+</p>
+
 | Setting | What it does | Range / default |
 |---|---|---|
 | **Lens enabled** | Master on/off (same as the toggle key). | on |
@@ -90,7 +109,7 @@ The settings window opens on first launch; after that Magnifier lives in the sys
 | **Strength** | Zoom at the exact center. | 1.0× – 10.0× · 2.0× |
 | **Gradual zoom** | On: zoom fades from Strength at the center to 1× at the edge. Off: fixed zoom across the whole lens. | on |
 
-<kbd>Ctrl</kbd>+click a slider to type an exact value. The bottom of the window shows live stats: **lens fps**, **monitor Hz** and **capture-to-lens delay**.
+<kbd>Ctrl</kbd>+click a slider to type an exact value. The bottom of the window shows live stats: **lens fps**, **monitor Hz** and the **delay**.
 
 > **Picking a bind for games**
 > - **Mouse buttons are never blocked.** Right-click still aims in-game while it also drives the lens.
@@ -151,7 +170,7 @@ The unit tests lock in all of these properties.
 
 ## Is it safe with anti-cheat?
 
-Magnifier is designed to stay completely outside the game:
+McScope is designed to stay completely outside the game:
 
 - **No DLL injection, no swap-chain or `Present` hooks, no reading or writing game memory.**
 - **No keyboard or mouse hooks.** Mouse and hold-mode binds use the standard Raw Input API, which observes input without intercepting it.
@@ -170,7 +189,7 @@ The game is probably in **true exclusive fullscreen**, which bypasses the Window
 <details>
 <summary><b>The lens is black</b></summary>
 
-The game or its anti-cheat blocks screen capture of its window, or the content is DRM-protected (some video players). Magnifier can't magnify what Windows won't let it capture.
+The game or its anti-cheat blocks screen capture of its window, or the content is DRM-protected (some video players). McScope can't magnify what Windows won't let it capture.
 </details>
 
 <details>
@@ -180,15 +199,15 @@ Another program, or Windows itself, already registered that combination. Pick a 
 </details>
 
 <details>
-<summary><b>The build fails with <code>LNK1104: cannot open file 'Magnifier.exe'</code></b></summary>
+<summary><b>The build fails with <code>LNK1104: cannot open file 'McScope.exe'</code></b></summary>
 
-Magnifier is still running, and Windows locks a running exe. Exit it from the tray (right-click → **Exit**) and build again.
+McScope is still running, and Windows locks a running exe. Exit it from the tray (right-click → **Exit**) and build again.
 </details>
 
 <details>
 <summary><b>Where are the settings and logs?</b></summary>
 
-`%APPDATA%\Magnifier\settings.json` and `%APPDATA%\Magnifier\log.txt`. A corrupt settings file is renamed to `settings.json.bad` and defaults are used.
+`%APPDATA%\McScope\settings.json` and `%APPDATA%\McScope\log.txt`. A corrupt settings file is renamed to `settings.json.bad` and defaults are used.
 
 ```json
 {
@@ -252,6 +271,6 @@ ctest --preset x64-release   # tests only (from a VS developer prompt)
 
 ## License
 
-[MIT](LICENSE) © 2026 tarekFerdous: free to use, modify and share, including commercially, as long as the copyright notice is kept.
+[MIT](LICENSE) © 2026 tarekFerdous: free to use, modify and share, including commercially, as long as the copyright notice is kept. Release signing is covered by the [code signing policy](CODE_SIGNING.md).
 
 Third-party libraries, fetched at build time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT) and [nlohmann/json](https://github.com/nlohmann/json) (MIT).

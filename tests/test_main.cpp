@@ -155,7 +155,7 @@ void hotkeys() {
 
 void files() {
     namespace fs = std::filesystem;
-    const fs::path dir = fs::temp_directory_path() / "magnifier_tests";
+    const fs::path dir = fs::temp_directory_path() / "mcscope_tests";
     fs::remove_all(dir);
     const fs::path file = dir / "settings.json";
 

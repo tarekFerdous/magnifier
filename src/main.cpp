@@ -16,8 +16,8 @@
 
 namespace {
 
-constexpr wchar_t kTrayClass[] = L"MagnifierTrayWindow";
-constexpr wchar_t kMutexName[] = L"Local\\MagnifierSingleInstance";
+constexpr wchar_t kTrayClass[] = L"McScopeTrayWindow";
+constexpr wchar_t kMutexName[] = L"Local\\McScopeSingleInstance";
 constexpr UINT WM_APP_TRAY = WM_APP + 1;
 constexpr UINT WM_APP_SHOW_SETTINGS = WM_APP + 2;  // also sent by a second instance
 constexpr UINT WM_APP_BINDING = WM_APP + 3;       // from BindingWatcher: wParam pressed/released
@@ -109,7 +109,7 @@ struct App {
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         nid.uCallbackMessage = WM_APP_TRAY;
         nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-        wcscpy_s(nid.szTip, settings->get().enabled ? L"Magnifier (on)" : L"Magnifier (off)");
+        wcscpy_s(nid.szTip, settings->get().enabled ? L"McScope (on)" : L"McScope (off)");
         if (!Shell_NotifyIconW(NIM_ADD, &nid)) logf("Shell_NotifyIcon(NIM_ADD) failed");
     }
 
@@ -117,7 +117,7 @@ struct App {
         NOTIFYICONDATAW nid;
         fillTrayData(nid);
         nid.uFlags = NIF_TIP;
-        wcscpy_s(nid.szTip, settings->get().enabled ? L"Magnifier (on)" : L"Magnifier (off)");
+        wcscpy_s(nid.szTip, settings->get().enabled ? L"McScope (on)" : L"McScope (off)");
         Shell_NotifyIconW(NIM_MODIFY, &nid);
     }
 
@@ -177,10 +177,10 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_APP_RENDER_FATAL:
             MessageBoxW(nullptr,
-                        L"Magnifier needs Windows 10 version 2004 or newer: it could not hide its "
+                        L"McScope needs Windows 10 version 2004 or newer: it could not hide its "
                         L"lens from screen capture, which would cause a feedback loop.\n\n"
-                        L"See log.txt in %APPDATA%\\Magnifier for details.",
-                        L"Magnifier", MB_OK | MB_ICONERROR);
+                        L"See log.txt in %APPDATA%\\McScope for details.",
+                        L"McScope", MB_OK | MB_ICONERROR);
             PostQuitMessage(1);
             return 0;
     }
@@ -191,7 +191,7 @@ std::filesystem::path appDataDir() {
     PWSTR path = nullptr;
     std::filesystem::path dir;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &path)))
-        dir = std::filesystem::path(path) / L"Magnifier";
+        dir = std::filesystem::path(path) / L"McScope";
     CoTaskMemFree(path);
     return dir.empty() ? std::filesystem::current_path() : dir;
 }
@@ -212,7 +212,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
 
     const auto dir = appDataDir();
     logInit(dir / L"log.txt");
-    logf("Magnifier starting");
+    logf("McScope starting");
 
     g_app.inst = inst;
     g_app.settingsPath = dir / L"settings.json";
@@ -228,7 +228,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     wc.hInstance = inst;
     wc.lpszClassName = kTrayClass;
     RegisterClassExW(&wc);
-    g_app.tray = CreateWindowExW(WS_EX_TOOLWINDOW, kTrayClass, L"Magnifier", WS_POPUP, 0, 0, 0, 0,
+    g_app.tray = CreateWindowExW(WS_EX_TOOLWINDOW, kTrayClass, L"McScope", WS_POPUP, 0, 0, 0, 0,
                                  nullptr, nullptr, inst, nullptr);
     if (!g_app.tray) {
         logf("Failed to create tray window: %lu", GetLastError());
@@ -289,7 +289,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         }
     }
 
-    logf("Magnifier exiting");
+    logf("McScope exiting");
     g_app.renderer->stop();
     g_app.bindingWatcher.stop();
     g_app.save();

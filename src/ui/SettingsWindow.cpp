@@ -12,7 +12,7 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 namespace {
-constexpr wchar_t kClassName[] = L"MagnifierSettingsWindow";
+constexpr wchar_t kClassName[] = L"McScopeSettingsWindow";
 constexpr int kClientWidth = 440;   // at 96 DPI
 constexpr int kClientHeight = 375;
 constexpr DWORD kStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
@@ -40,7 +40,7 @@ bool SettingsWindow::create(HINSTANCE inst, SharedSettings& settings, const Rend
     wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false;
 
-    hwnd_ = CreateWindowExW(0, kClassName, L"Magnifier Settings", kStyle, CW_USEDEFAULT,
+    hwnd_ = CreateWindowExW(0, kClassName, L"McScope Settings", kStyle, CW_USEDEFAULT,
                             CW_USEDEFAULT, kClientWidth, kClientHeight, nullptr, nullptr, inst,
                             this);
     if (!hwnd_) {
@@ -266,13 +266,13 @@ void SettingsWindow::drawUi() {
     ImGui::Spacing();
     ImGui::Separator();
     if (s.active()) {
-        ImGui::TextDisabled("Lens %.0f fps  |  monitor %.0f Hz  |  capture-to-lens %.1f ms",
+        ImGui::TextDisabled("Lens %.0f fps  |  %.0f Hz monitor  |  %.1f ms delay",
                             stats_->fps.load(), stats_->refreshHz.load(), stats_->delayMs.load());
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip(
                 "The lens redraws every time the screen changes, up to the monitor's refresh rate:\n"
                 "that is the most frames a monitor can show. On a static desktop fps drops,\n"
-                "which is expected. Capture-to-lens is the time from Windows updating the screen\n"
+                "which is expected. Delay is the time from Windows updating the screen\n"
                 "to the lens frame being submitted; it then appears on the next refresh.");
     } else {
         ImGui::TextDisabled("Lens off");
