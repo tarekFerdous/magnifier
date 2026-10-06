@@ -9,6 +9,7 @@ Hold a key or mouse button, and the area under your crosshair is magnified — s
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)
 ![Direct3D 11](https://img.shields.io/badge/Direct3D-11-555)
 ![No injection](https://img.shields.io/badge/game%20process-untouched-2ea44f)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <img src="docs/demo.gif" alt="Animated demo: the camera flicks between distant targets; holding right mouse magnifies the crosshair area with a gradual lens, then a fixed scope-style lens, then releases" width="720">
 
@@ -251,5 +252,6 @@ ctest --preset x64-release   # tests only (from a VS developer prompt)
 
 ## License
 
-<!-- TODO: choose a license (MIT is a common choice for tools like this) and add a LICENSE file. -->
-No license has been chosen yet. Until one is added, all rights are reserved by the author.
+[MIT](LICENSE) © 2026 tarekFerdous: free to use, modify and share, including commercially, as long as the copyright notice is kept.
+
+Third-party libraries, fetched at build time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT) and [nlohmann/json](https://github.com/nlohmann/json) (MIT).
